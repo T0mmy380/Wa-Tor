@@ -353,7 +353,7 @@ func update() error {
 
 	wg.Wait()
 
-	// Swap grids and timer arrays (copy assignment)
+	// Swap grids and timer arrays
 	temp := buffer
 	buffer = grid
 	grid = temp
@@ -507,3 +507,4 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
