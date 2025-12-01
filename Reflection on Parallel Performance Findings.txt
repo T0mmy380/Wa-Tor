@@ -1,0 +1,15 @@
+The goal of adding multithreading to the Wa-Tor simulation was to improve performance by distributing the work across multiple CPU cores. 
+However, the results clearly showed that increasing the thread count led to worse performance, with speedup values consistently dropping below 1.0. 
+This means the simulation actually ran slower when using 2, 4, or 8 threads compared to just a single thread.
+
+This unexpected result helped me recognize a key lesson in parallel programming: concurrency only improves performance if the amount of useful parallel work outweighs the overhead of managing it.
+In this simulation, each animal update is a small task, but the use of fine-grained mutex locking introduced significant contention between threads. 
+As more threads were added, they spent more time waiting for access to shared tiles than performing actual computation. 
+There was also additional overhead from cache synchronization and CPU scheduling.
+
+Through this experiment, I learned the importance of designing parallel algorithms that minimize shared-state conflicts and reduce synchronization costs. 
+Simply adding more threads does not guarantee better performance — the architecture of the program must allow threads to work independently as much as possible. 
+In future versions, using coarser partitioning, avoiding mid-step grid mutation, or even implementing lock-free approaches would likely result in real performance gains.
+
+Overall, this benchmarking process showed me that parallelism is a tool that must be applied carefully, 
+and performance measurement is essential to verifying whether the approach is actually effective.
