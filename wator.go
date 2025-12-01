@@ -1,5 +1,13 @@
 package main
 
+/// @file wator.go
+/// @brief Wa-Tor predator-prey simulation using Ebiten (Go).
+/// @details This file implements the Wa-Tor simulation: fish and sharks
+/// interact on a toroidal grid. The simulation supports a multithreaded
+/// update step that partitions the grid into tiles and uses per-tile
+/// mutexes to protect concurrent writes. Benchmark helper functions are
+/// included to measure performance with different `threads` settings.
+
 import (
 	"fmt"
 	"image/color"
@@ -14,26 +22,24 @@ import (
 	"github.com/hajimehoshi/ebiten"
 )
 
-// Simulation settings
+// / @brief Simulation settings: initial counts and timers.
 var numShark int = 4000
 var numFish int = 10000
 var fishBreed int = 3   // ticks before fish can breed
 var sharkBreed int = 8  // ticks before shark can breed
 var sharkStarve int = 3 // ticks a shark can go without eating
-var threads int = 1     // number of worker goroutines
+var threads int = 4     // number of worker goroutines
 
 const width = 400
 const height = 400
 
-// Grid values: 0 empty, 1 fish, 2 shark
+// / @brief Grid values: 0 empty, 1 fish, 2 shark
 var grid [width][height]uint8 = [width][height]uint8{}
 var buffer [width][height]uint8 = [width][height]uint8{}
 
-// Breed timers (per cell)
 var breedTimer [width][height]int
 var bufferBreed [width][height]int
 
-// Shark starvation timers (per cell)
 var starveTimer [width][height]int
 var bufferStarve [width][height]int
 
@@ -45,7 +51,8 @@ var shark color.Color = color.RGBA{200, 50, 50, 255}
 
 var count int = 0
 
-// countFish returns current fish count.
+// / @brief Returns the current number of fish on the grid.
+// / @return int Number of cells containing a fish.
 func countFish() int {
 	cnt := 0
 	for x := 0; x < width; x++ {
@@ -58,9 +65,14 @@ func countFish() int {
 	return cnt
 }
 
-// update computes the next simulation tick.
-// Uses a buffer to build the next state while reading from `grid`.
-// The grid is split across goroutines; each cell is processed independently.
+// / @brief Compute the next simulation tick.
+// / @details update() builds the next world state in `buffer` and then
+// / swaps buffers into `grid`. The function partitions the grid into tiles
+// / and launches goroutines to process tiles in parallel. Per-tile
+// / mutexes are used to protect concurrent writes into `buffer` and timer
+// / arrays. Fish try to move/breed into empty neighbors; sharks try to eat
+// / adjacent fish first, otherwise move or possibly starve.
+// / @return error Always returns nil (placeholder for potential error handling).
 func update() error {
 	// Clear next-state buffers
 	for x := 0; x < width; x++ {
@@ -359,7 +371,8 @@ func update() error {
 	return nil
 }
 
-// display renders `grid` to the Ebiten image.
+// / @brief Render the current `grid` into the provided Ebiten image.
+// / @param window Pointer to the Ebiten image used as the drawing surface.
 func display(window *ebiten.Image) {
 	window.Fill(bg)
 
@@ -379,7 +392,11 @@ func display(window *ebiten.Image) {
 	}
 }
 
-// frame runs each frame; update is called intermittently (controlled by `count`).
+// / @brief Per-frame handler passed to Ebiten's run loop.
+// / @details Calls `update()` intermittently (controlled by `count`) and then
+// / draws the world via `display`.
+// / @param window Pointer to the Ebiten image for the frame.
+// / @return error Propagates any error coming from `update()`.
 func frame(window *ebiten.Image) error {
 	count++
 	var err error = nil
@@ -394,6 +411,10 @@ func frame(window *ebiten.Image) error {
 	return err
 }
 
+// / @brief Initialize the world grid and timers.
+// / @details Clears the grid and places `numFish` fish and `numShark` sharks
+// / at random, using fixed breed/starve timers defined by `fishBreed` and
+// / `sharkBreed`/`sharkStarve`.
 func initWorld() {
 	// Clear everything
 	for x := 0; x < width; x++ {
@@ -430,6 +451,10 @@ func initWorld() {
 	}
 }
 
+// / @brief Run a single benchmark of the simulation for `steps` ticks.
+// / @param steps Number of simulation ticks to execute.
+// / @param thr Number of worker threads (goroutines) to use.
+// / @return time.Duration The elapsed time taken to perform `steps` updates.
 func runSingleBenchmark(steps int, thr int) time.Duration {
 	threads = thr
 	runtime.GOMAXPROCS(threads)
@@ -447,6 +472,7 @@ func runSingleBenchmark(steps int, thr int) time.Duration {
 	return elapsed
 }
 
+// / @brief Run a set of benchmarks across multiple thread counts and print CSV results.
 func runBenchmarks() {
 	steps := 1000 // or 500 / 1000, just keep it consistent across runs
 
@@ -459,6 +485,9 @@ func runBenchmarks() {
 	}
 }
 
+// / @brief Program entry point.
+// / @details If the first command line argument equals "bench", run the
+// / benchmark mode; otherwise run the interactive Ebiten graphical mode.
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
